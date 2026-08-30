@@ -4,6 +4,19 @@
 
 **Unlimited Tycoon** is a massive, feature-rich base-building game on Roblox that goes beyond the classic Tycoon formula. It blends passive income generation with active mining, dynamic PvP zones, RPG-style character progression, and unique customizable media elements.
 
+<div style="overflow-x: auto; padding: 10px 0;">
+   <img src="images/BacteriaGame.jpg" height="300" style="margin-right: 10px;" />
+</div>
+<table>
+  <tr>
+     <td><img src="images/Bacteria.gif" width="300"></td>
+     <td><img src="images/Bacteria1.jpg" width="300"></td>
+     <td><img src="images/Bacteria2.jpg" width="300"></td>
+     <td><img src="images/Bacteria3.jpg" width="300"></td>
+     <td><img src="images/Bacteria4.png" width="300"></td>
+  </tr>
+</table>
+
 ## Key Features & Mechanics
 
 ### Base Building & Economy
@@ -31,13 +44,3 @@ Make your base truly yours by broadcasting your favorite content:
 * The game features a full save system for player progress.
 * Scripts are scalable to accommodate new items, buildings, and features.
 * The game features a full day/night cycle with changing sound effects.
-
----
-
-## How to Play
-1. **Claim a Base:** Find an empty plot and run through the entrance arch.
-2. **Start Earning:** Buy your first generators or head to the mine to earn manual cash.
-3. **Upgrade & Expand:** Reinvest your money into servers, better miners, and base expansions.
-4. **Gear Up:** Research weapons and upgrade your stats to prepare for battle.
-5. **Fight:** Step into the PvP zones to test your strength against other players.
-6. **Customize:** Set up your cinema and speakers to vibe while your empire grows.
