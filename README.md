@@ -5,15 +5,13 @@
 **Unlimited Tycoon** is a massive, feature-rich base-building game on Roblox that goes beyond the classic Tycoon formula. It blends passive income generation with active mining, dynamic PvP zones, RPG-style character progression, and unique customizable media elements.
 
 <div style="overflow-x: auto; padding: 10px 0;">
-   <img src="images/BacteriaGame.jpg" height="300" style="margin-right: 10px;" />
+   <img src="images/icon.jpg" height="300" style="margin-right: 10px;" />
 </div>
 <table>
   <tr>
-     <td><img src="images/Bacteria.gif" width="300"></td>
-     <td><img src="images/Bacteria1.jpg" width="300"></td>
-     <td><img src="images/Bacteria2.jpg" width="300"></td>
-     <td><img src="images/Bacteria3.jpg" width="300"></td>
-     <td><img src="images/Bacteria4.png" width="300"></td>
+     <td><img src="images/Unlimited.gif" width="300"></td>
+     <td><img src="images/Unlimited2.jpg" width="300"></td>
+     <td><img src="images/Unlimited3.jpg" width="300"></td>
   </tr>
 </table>
 
@@ -36,7 +34,7 @@ The map is divided into distinct zones that alter player capabilities:
 * **Stats UI:** Track your current power, health, and progression at any time via the dedicated "Stats" tab.
 
 ### Media Customization
-Make your base truly yours by broadcasting your favorite content:
+An opportunity to brighten up your time and invite friends to a party:
 * **In-game Cinema & Garden Speakers:** Customize the visual and audio experience of your tycoon.
 * **Easy Setup:** Click the gear icon to open settings and insert the **Roblox Asset ID** of the desired video or audio. (Find content via the [Roblox Creator Store](https://create.roblox.com/store)).
 
