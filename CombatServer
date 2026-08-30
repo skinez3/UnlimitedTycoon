@@ -1,0 +1,36 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MeleeHitEvent = ReplicatedStorage:WaitForChild("MeleeHit")
+
+MeleeHitEvent.OnServerEvent:Connect(function(player, victimCharacter, toolUsed, attackName)
+	local character = player.Character
+	if not character or not victimCharacter then return end
+
+	if type(attackName) ~= "string" then return end
+	if not toolUsed:IsDescendantOf(character) then return end
+
+	local configModule = toolUsed:FindFirstChild("WeaponConfig")
+	if not configModule then return end
+	local WeaponConfig = require(configModule)
+
+	local attackData = WeaponConfig.Moveset and WeaponConfig.Moveset[attackName]
+	if not attackData then return end 
+
+	local victimHumanoid = victimCharacter:FindFirstChild("Humanoid")
+	if not victimHumanoid or victimHumanoid.Health <= 0 then return end
+
+	local attackerProp = character:FindFirstChild("CharacterProp")
+	local victimProp = victimCharacter:FindFirstChild("CharacterProp")
+
+	if attackerProp and victimProp then
+		if attackerProp:GetAttribute("InPVP") and victimProp:GetAttribute("InPVP") then
+
+			local tag = Instance.new("ObjectValue")
+			tag.Name = "creator"
+			tag.Value = player
+			tag.Parent = victimHumanoid
+			game:GetService("Debris"):AddItem(tag, 2)
+
+			victimHumanoid:TakeDamage(attackData.Damage)
+		end
+	end
+end)
