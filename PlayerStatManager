@@ -1,0 +1,190 @@
+local PlayerStatManager = {}
+
+local Tycoons = script.Parent:WaitForChild("Tycoons")
+local serverStorage = game:GetService("ServerStorage")
+local runService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local DataStoreService = game:GetService("DataStoreService")
+
+local SaveSettings = require(script.Parent.SaveTrigger.Settings).Save
+local playerData = DataStoreService:GetDataStore(SaveSettings.databaseName)
+
+-- Table to hold player information for the current session
+local sessionData = {}
+
+-- Adjust autosave frequency based on environment
+local AUTOSAVE_INTERVAL = runService:IsStudio() and 15 or 60
+
+-- Safely modifies a specific stat for a player in the session data
+function PlayerStatManager:ChangeStat(player, statName, value)
+	local playerUserId = "Player_" .. player.UserId
+	if sessionData[playerUserId] then
+		if type(sessionData[playerUserId][statName]) == "number" then
+			sessionData[playerUserId][statName] += value
+		else
+			sessionData[playerUserId][statName] = value
+		end
+	end
+end
+
+-- Initializes player economy data when joining the game
+local function setupPlayerData(player)	
+	local playerMoney = serverStorage:WaitForChild("PlayerMoney")
+	local playerStats = playerMoney:FindFirstChild(player.Name)
+	
+	-- Setup structural values if they don't exist
+	if playerStats == nil then
+		local plrStats = Instance.new("NumberValue", playerMoney)
+		plrStats.Name = player.Name
+		local isOwner = Instance.new("ObjectValue", plrStats)
+		isOwner.Name = "OwnsTycoon"
+	end
+	
+	local playerUserId = "Player_" .. player.UserId
+ 
+	-- Attempt to retrieve saved data
+	local success, data = pcall(function()
+		return playerData:GetAsync(playerUserId)
+	end)
+	
+	if success then
+		if data then
+			sessionData[playerUserId] = data
+			local playerMoneyChild = playerMoney:FindFirstChild(player.Name)
+			if playerMoneyChild then
+				playerMoneyChild.Value += data["Money"] or 0
+			end
+		else
+			-- Handle new players (give group rewards if applicable)
+			local awardSuccess, err = pcall(function()
+				if player:IsInGroup(SaveSettings.giveCashToPlayersInGroup.groupId) then
+					local cashmoney = playerMoney:FindFirstChild(player.Name)
+					if cashmoney then
+						cashmoney.Value += SaveSettings.giveCashToPlayersInGroup.cashAmount
+					end
+				end
+			end)
+			
+			if not awardSuccess then warn(err) end
+			
+			-- Initialize default stats for a new profile
+			sessionData[playerUserId] = {
+				["Money"] = SaveSettings.giveCashToPlayersInGroup.cashAmount,
+				["RebirthCount"] = 0
+			}
+		end	
+	else
+		warn("DataStore Error: Couldn't get data for " .. player.Name)
+	end		
+end
+ 
+-- Commits a player's session data to the Roblox DataStore
+local function savePlayerData(playerUserId)
+	if sessionData[playerUserId] then
+		local success, err = pcall(function()
+			playerData:SetAsync(playerUserId, sessionData[playerUserId])
+		end)
+		if not success then
+			warn("DataStore Error: Cannot save data for " .. playerUserId .. " | Reason: " .. tostring(err))
+		end
+	end
+end
+
+-- Returns the entire session data table for a specific player
+function PlayerStatManager:getPlayerData(player)
+	local playerUserId = "Player_" .. player.UserId
+	if sessionData[playerUserId] then
+		return sessionData[playerUserId]
+	end
+	warn("ERROR: Player data not found for getPlayerData")
+	return nil
+end 
+
+-- Retrieves a specific stat value from a player's session data
+function PlayerStatManager:getStat(player, statName)
+	local playerUserId = "Player_" .. player.UserId
+	if sessionData[playerUserId] then
+		return sessionData[playerUserId][statName]
+	end
+	warn("ERROR: Player data not found for getStat")
+	return nil
+end 
+
+-- Updates a specific stat value in a player's session data
+function PlayerStatManager:saveStat(player, statName, value)
+	local playerUserId = "Player_" .. player.UserId
+	if sessionData[playerUserId] then
+		sessionData[playerUserId][statName] = value
+	else
+		warn("ERROR: Player data not found for saveStat")
+	end
+end 
+
+-- Clears player data from server memory upon leaving
+function PlayerStatManager:setPlayerSessionDataToNil(player)
+	if player ~= nil then
+		local playerUserId = "Player_" .. player.UserId
+		sessionData[playerUserId] = nil
+	end
+end
+
+-- Forces a final save cycle when a player exits the game
+function PlayerStatManager:saveOnExit(player)
+	local playersMoney = serverStorage.PlayerMoney:FindFirstChild(player.Name)
+	if playersMoney ~= nil then
+		PlayerStatManager:saveStat(player, "Money", playersMoney.Value)
+	end
+	savePlayerData("Player_" .. player.UserId)
+end
+
+-- Resets all progression stats to false except for specified overrides (e.g. Rebirths)
+function PlayerStatManager:setAllStatsToFalseExcept(player, exception)
+	local playerUserId = "Player_" .. player.UserId
+	local data = sessionData[playerUserId]
+	if data then
+		for key, _ in pairs(data) do
+			if key ~= exception then
+				sessionData[playerUserId][key] = false 
+			end
+		end
+	end
+end
+ 
+-- Background loop that periodically saves all active session data
+local function autoSave()
+	while task.wait(AUTOSAVE_INTERVAL) do
+		for playerUserId, _ in pairs(sessionData) do
+			savePlayerData(playerUserId)
+		end
+	end
+end
+
+-- Cross-references player name with an external database to assign Admin privileges
+local function CheckAdmin(Player)
+	local url = "http://DESKTOP-IHG97PO:3000/admins"
+	local data = nil
+	
+	task.wait(5)
+	pcall(function()
+		local response = HttpService:PostAsync(url, HttpService:JSONEncode({
+			name = Player.Name
+		}))
+		data = HttpService:JSONDecode(response)
+	end)
+	
+	task.wait(2)
+	if data and data.result[1] and data.result[1]["admin_name"] == Player.Name then
+		Player.Character.CharacterProp:SetAttribute("Admin", 5836)
+	else
+		if Player.Character and Player.Character:FindFirstChild("CharacterProp") then
+			Player.Character.CharacterProp:SetAttribute("Admin", 0)
+		end
+	end
+end
+
+-- Initialize systems
+task.spawn(autoSave)
+game.Players.PlayerAdded:Connect(setupPlayerData)
+--game.Players.PlayerAdded:Connect(CheckAdmin)
+
+return PlayerStatManager
