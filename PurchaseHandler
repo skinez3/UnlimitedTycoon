@@ -1,0 +1,205 @@
+-- Cache configurations, module settings, and core service references
+local Objects = {}
+local TeamColor = script.Parent.TeamColor.Value
+local Settings = require(script.Parent.Parent.Parent.Settings)
+local Money = script.Parent.CurrencyToCollect
+local Debris = game:GetService('Debris')
+local Stealing = Settings.StealSettings
+local CanSteal = true 
+local HttpService = game:GetService("HttpService")
+local players = game:GetService("Players")
+
+-- Assign team color to the spawn location
+script.Parent.Essentials.Spawn.TeamColor = TeamColor
+script.Parent.Essentials.Spawn.BrickColor = TeamColor
+
+-- Sound playback helper
+function Sound(part, id)
+	if part:FindFirstChild('Sound') then
+		return
+	else
+		local Sound = Instance.new('Sound', part)
+		Sound.SoundId = "rbxassetid://" .. tostring(id)
+		Sound:Play()
+		delay(Sound.TimeLength, function()
+			Sound:Destroy()
+		end)
+	end
+end
+
+-- Process dropped parts touching collectors and store their cash value
+for i, v in pairs(script.Parent.Essentials:GetChildren()) do
+	if v.Name == "PartCollector" then
+		v.Touched:connect(function(Part)
+			if Part:FindFirstChild('Cash') then
+				Money.Value = Money.Value + Part.Cash.Value
+				Debris:AddItem(Part, 0.1)
+			end
+		end)
+	end
+end
+
+-- Passive background loop to transfer collected cash to player stats
+coroutine.resume(coroutine.create(function()
+	while task.wait(5) do
+		local player = script.Parent.Owner.Value
+		if player ~= nil then
+			local Stats = game.ServerStorage.PlayerMoney:FindFirstChild(player.Name)
+			if Stats ~= nil then
+				Stats.Value = Stats.Value + Money.Value * script.Parent.X.Value
+				Money.Value = 0
+			end
+		end
+	end
+end))
+
+-- Initialize buttons, clone purchase models into cache, and setup click detectors
+script.Parent:WaitForChild("Buttons")
+for i, v in pairs(script.Parent.Buttons:GetChildren()) do
+	spawn(function()
+		if v:FindFirstChild("Head") then
+
+			local ThingMade = script.Parent.Purchases:WaitForChild(v.Object.Value)
+			if ThingMade ~= nil then
+				print("adding------------------> purchase ", ThingMade.Name)
+				Objects[ThingMade.Name] = ThingMade:Clone()
+				ThingMade:Destroy()
+			else
+				error('Object missing for button: ' .. v.Name .. ', button has been removed')
+			end
+
+			-- Handle locked dependency buttons and animate their reveal
+			if v:FindFirstChild("Dependency") then
+				v.Head.CanCollide = false
+				v.Head.Transparency = 1
+				v.Head.ClickDetector.MaxActivationDistance = 0
+				v.Part1.CanCollide = false
+				v.Part1.Transparency = 1
+				v.Part2.CanCollide = false
+				v.Part2.Transparency = 1
+				v.Part3.CanCollide = false
+				v.Part3.Transparency = 1
+				v.Wedge.CanCollide = false
+				v.Wedge.Transparency = 1
+				coroutine.resume(coroutine.create(function()
+					if script.Parent.PurchasedObjects:WaitForChild(v.Dependency.Value) then
+						if Settings['ButtonsFadeIn'] then
+							for i = 1, 20 do
+								task.wait(Settings['FadeInTime'] / 20)
+								v.Head.Transparency = v.Head.Transparency - 0.05
+								v.Part1.Transparency = v.Part1.Transparency - 0.05
+								v.Part2.Transparency = v.Part2.Transparency - 0.05
+								v.Part3.Transparency = v.Part3.Transparency - 0.05
+								v.Wedge.Transparency = v.Wedge.Transparency - 0.05
+							end
+						end
+						v.Head.CanCollide = true
+						v.Head.Transparency = 0
+						v.Head.ClickDetector.MaxActivationDistance = 32
+						v.Part1.CanCollide = true
+						v.Part1.Transparency = 0
+						v.Part2.CanCollide = true
+						v.Part2.Transparency = 0
+						v.Part3.CanCollide = true
+						v.Part3.Transparency = 0
+						v.Wedge.CanCollide = true
+						v.Wedge.Transparency = 0
+					end
+				end))
+			end
+			
+			-- Process player interactions (Gamepass, DevProduct, or cash purchase)
+			local function hit(player)
+				if v.Head.CanCollide == true then
+					if player ~= nil then
+						if script.Parent.Owner.Value == player then
+							local PlayerStats = game.ServerStorage.PlayerMoney:FindFirstChild(player.Name)
+							if PlayerStats ~= nil then
+								if (v:FindFirstChild('Gamepass')) and (v.Gamepass.Value >= 1) then
+									if game:GetService("MarketplaceService"):PlayerOwnsAssetAsync(player, v.Gamepass.Value) then
+										Purchase({[1] = v.Price.Value, [2] = v, [3] = PlayerStats})
+									else
+										game:GetService('MarketplaceService'):PromptPurchase(player, v.Gamepass.Value)
+									end
+								elseif (v:FindFirstChild('DevProduct')) and (v.DevProduct.Value >= 1) then
+									game:GetService('MarketplaceService'):PromptProductPurchase(player, v.DevProduct.Value)
+								elseif PlayerStats.Value >= v.Price.Value then
+									Purchase({[1] = v.Price.Value, [2] = v, [3] = PlayerStats})
+									Sound(v, Settings.Sounds.Purchase)
+								else
+									Sound(v, Settings.Sounds.ErrorBuy)
+								end
+							end
+						end
+					end
+				end
+			end
+			v.Head.ClickDetector.MouseClick:connect(hit)
+		end
+	end)
+end
+
+-- Deduct money, place object into workspace, and hide/fade out the button
+function Purchase(tbl)
+	local cost = tbl[1]
+	local item = tbl[2]
+	local stats = tbl[3]
+	stats.Value = stats.Value - cost
+	Objects[item.Object.Value].Parent = script.Parent.PurchasedObjects
+	if Settings['ButtonsFadeOut'] then
+		item.Head.CanCollide = false
+		item.Head.ClickDetector.MaxActivationDistance = 0
+		item.Part1.CanCollide = false
+		item.Part2.CanCollide = false
+		item.Part3.CanCollide = false
+		item.Wedge.CanCollide = false
+		coroutine.resume(coroutine.create(function()
+			for i = 1, 20 do
+				wait(Settings['FadeOutTime'] / 20)
+				item.Head.Transparency = item.Head.Transparency + 0.05
+				item.Part1.Transparency = item.Part1.Transparency + 0.05
+				item.Part2.Transparency = item.Part2.Transparency + 0.05
+				item.Part3.Transparency = item.Part3.Transparency + 0.05
+				item.Wedge.Transparency = item.Wedge.Transparency + 0.05
+			end
+		end))
+	else
+		item.Head.CanCollide = false
+		item.Head.Transparency = 1
+		item.Head.ClickDetector.MaxActivationDistance = 0
+		item.Part1.CanCollide = false
+		item.Part1.Transparency = 1
+		item.Part2.CanCollide = false
+		item.Part2.Transparency = 1
+		item.Part3.CanCollide = false
+		item.Part3.Transparency = 1
+		item.Wedge.CanCollide = false
+		item.Wedge.Transparency = 1
+	end
+end
+
+-- Create temporary purchase models for external instantiation
+function Create(tab)
+	local x = Instance.new('Model')
+	Instance.new('NumberValue', x).Value = tab[1]
+	x.Value.Name = "Cost"
+	Instance.new('ObjectValue', x).Value = tab[2]
+	x.Value.Name = "Button"
+	local Obj = Instance.new('ObjectValue', x)
+	Obj.Name = "Stats"
+	Obj.Value = tab[3]
+	x.Parent = script.Parent.BuyObject
+end
+
+-- Listener for dynamic programmatic purchases
+script.Parent:WaitForChild('BuyObject').ChildAdded:connect(function(child)
+	local tab = {}
+	tab[1] = child.Cost.Value
+	tab[2] = child.Button.Value
+	tab[3] = child.Stats.Value
+	Purchase(tab)
+	wait(10)
+	child:Destroy()
+end)
+
+return Objects
