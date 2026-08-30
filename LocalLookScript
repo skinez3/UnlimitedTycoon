@@ -1,0 +1,44 @@
+-- Services and active client references
+local tweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
+local Player = game.Players.LocalPlayer
+task.wait(3)
+
+-- Character initialization and Neck joint validation
+local Character = Player.Character
+local Root = Character:WaitForChild("HumanoidRootPart")
+local Neck = Character:FindFirstChild("Neck", true)
+while Neck == nil do
+	task.wait(5)
+	Neck = Character:FindFirstChild("Neck", true)
+end
+local YOffset = Neck.Attachment0.CFrame.Y
+
+-- Cache math functions and CFrame constructors for RenderStepped optimization
+local CFNew, CFAng = CFrame.new, CFrame.Angles
+local asin = math.asin
+
+-- Dynamically calculate and set local neck rotation based on camera direction
+game:GetService("RunService").RenderStepped:Connect(function()
+	local CameraDirection = Root.CFrame:toObjectSpace(Camera.CFrame).lookVector
+	if Neck then
+		if Character.Humanoid.RigType == Enum.HumanoidRigType.R15 then
+			Neck.Attachment0.CFrame = CFNew(0, YOffset, 0) * CFAng(0, -asin(CameraDirection.x), 0) * CFAng(asin(CameraDirection.y), 0, 0)
+		elseif Character.Humanoid.RigType == Enum.HumanoidRigType.R6 then
+			Neck.Attachment0.CFrame = CFNew(0, YOffset, 0) * CFAng(3 * math.pi/2, 0, math.pi) * CFAng(0, 0, -asin(CameraDirection.x)) * CFAng(-asin(CameraDirection.y), 0, 0)
+		end
+	end
+end)
+
+-- Smoothly interpolate neck movements received from other players
+game.ReplicatedStorage.Look.OnClientEvent:Connect(function(otherPlayer, neckCFrame)
+	local Neck = otherPlayer.Character:FindFirstChild("Neck", true)
+	if Neck then
+		tweenService:Create(Neck.Attachment0, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, false, 0), {CFrame = neckCFrame}):Play()
+	end
+end)
+
+-- Periodically replicate local neck CFrame to the server
+while task.wait(0.5) do
+	game.ReplicatedStorage.Look:FireServer(Neck.Attachment0.CFrame)
+end
