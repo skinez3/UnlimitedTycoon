@@ -1,0 +1,117 @@
+-- Core services and module dependencies
+local Tycoons = {}
+local RebirthSettings = require(script.Parent.SaveTrigger.Settings)
+local Teams = game:GetService('Teams')
+local Settings = require(script.Parent.Settings)
+local BC = BrickColor
+
+local playerMoney = game:GetService("ServerStorage"):FindFirstChild("PlayerMoney")
+local PlayerStatManager = require(script.Parent:WaitForChild("PlayerStatManager"))
+
+print("Running Core_Handler_New")
+
+-- Initialize server storage for player economy
+if playerMoney == nil then
+	local Storage = Instance.new('Folder', game.ServerStorage)
+	Storage.Name = "PlayerMoney"
+end
+
+-- Container for dropped tycoon parts
+Instance.new('Model', workspace).Name = "PartStorage"
+
+-- Verifies if a BrickColor is already assigned to an existing team
+function returnColorTaken(color)
+	for i, v in pairs(Teams:GetChildren()) do
+		if v:IsA('Team') then
+			if v.TeamColor == color then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Create a default neutral team if auto-assign is disabled
+if not Settings['AutoAssignTeams'] then
+	local teamHire = Instance.new('Team', Teams)
+	teamHire.TeamColor = BC.new('Medium stone grey')
+	teamHire.Name = "For Hire"
+end
+
+-- Cache default tycoons, resolve color conflicts, and configure unique teams for each
+for i, v in pairs(script.Parent:WaitForChild('Tycoons'):GetChildren()) do
+	Tycoons[v.Name] = v:Clone() 
+	
+	if returnColorTaken(v.TeamColor) then
+		local newColor;
+		repeat
+			wait()
+			newColor = BC.Random()
+		until returnColorTaken(newColor) == false
+		v.TeamColor.Value = newColor
+	end
+	
+	local NewTeam = Instance.new('Team', Teams)
+	NewTeam.Name = v.Name
+	NewTeam.TeamColor = v.TeamColor.Value
+	if not Settings['AutoAssignTeams'] then
+		NewTeam.AutoAssignable = false
+	end
+end
+
+-- Retrieves the active tycoon model assigned to a specific player
+function getPlrTycoon(player)
+	for i, v in pairs(script.Parent.Tycoons:GetChildren()) do
+		if v:IsA("Model") then
+			if v.Owner.Value == player then
+				return v
+			end
+		end
+	end
+	return nil
+end
+
+-- Initialize player session data and leaderstats upon joining
+game.Players.PlayerAdded:connect(function(player)
+	local leaderStat = player:WaitForChild("leaderstats")
+	
+	local canRebirth = Instance.new("BoolValue")
+	canRebirth.Name = "CanRebirth"
+	canRebirth.Value = false
+	canRebirth.Parent = player
+	
+	if RebirthSettings.Rebirth.enabled == true then
+		if leaderStat ~= nil then
+			local rebirth = Instance.new("NumberValue")
+			rebirth.Name = "Rebirths"
+			rebirth.Parent = leaderStat
+	
+			local rebirthCount = PlayerStatManager:getStat(player, "RebirthCount")
+			
+			if rebirthCount ~= nil then
+				rebirth.Value = rebirthCount
+			else
+				rebirth.Value = 0	
+			end
+		end
+	end
+end)
+
+-- Save data, cleanup session variables, and reset the player's tycoon upon leaving
+game.Players.PlayerRemoving:connect(function(player)
+	PlayerStatManager:saveOnExit(player)
+	PlayerStatManager:setPlayerSessionDataToNil(player)
+	
+	local plrStats = game.ServerStorage.PlayerMoney:FindFirstChild(player.Name)
+	if plrStats ~= nil then
+		plrStats:Destroy()
+	end
+	
+	local tycoon = getPlrTycoon(player)
+	if tycoon then
+		local backup = Tycoons[tycoon.Name]:Clone()
+		tycoon:Destroy()
+		wait()
+		backup.Parent = script.Parent.Tycoons
+	end
+end)
